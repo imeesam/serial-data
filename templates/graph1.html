@@ -1,0 +1,88 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <script type="text/javascript" src="https://cdn.canvasjs.com/canvasjs.stock.min.js"></script>
+    <script type="text/javascript">
+        window.onload = function () {
+            createChart("X Values", "xChartContainer", "x");
+            createChart("Y Values", "yChartContainer", "y");
+            createChart("Z Values", "zChartContainer", "z");
+            createChart("Total Values", "totalChartContainer", "total");
+            createChart("Temperature", "tempChartContainer", "temperature");
+        }
+
+        function createChart(title, containerId, dataKey) {
+    var dataPoints = [];
+    var stockChart = new CanvasJS.StockChart(containerId, {
+        theme: "dark1",
+        title: { text: title },
+        charts: [{
+            axisX: {
+                crosshair: { enabled: true, valueFormatString: "MMM DD, YYYY hh:mm:ss TT" }, // 12-hour format
+                labelFormatter: function(e) {
+                    return CanvasJS.formatDate(e.value, "hh:mm:ss TT"); // Ensure 12-hour format with AM/PM
+                }
+            },
+            axisY: { title: title },
+            toolTip: { shared: true },
+            data: [{
+                type: "line",
+                name: title,
+                xValueFormatString: "MMM DD, YYYY hh:mm:ss TT", // 12-hour format for tooltip
+                xValueType: "dateTime", // X values are treated as dateTime
+                dataPoints: dataPoints
+            }]
+        }],
+        navigator: {
+            slider: {
+                minimum: new Date(new Date().getTime() - (10 * 1000)), // 10 seconds ago
+                maximum: new Date(),
+            },
+            axisX: {
+                labelFormatter: function (e) {
+                    return CanvasJS.formatDate(e.value, "hh:mm:ss TT"); // Ensure proper 12-hour time formatting
+                },
+                labelFontColor: "white"
+            }
+        },
+        rangeSelector: { enabled: true } // Enable range selector for zooming and scrolling
+    });
+
+    function updateChart() {
+        fetch('/api/get-graph-data')
+            .then(response => response.json())
+            .then(data => {
+                var labels = data.labels.map(label => new Date(label).getTime()); // Ensure proper time parsing
+                var values = data[dataKey];
+
+                // Add new data points without removing old ones
+                for (var i = dataPoints.length; i < labels.length; i++) {
+                    dataPoints.push({ x: labels[i], y: values[i] });
+                }
+
+                // Update the navigator slider to show the last 10 points in view
+                if (labels.length >= 10) {
+                    stockChart.options.navigator.slider.minimum = new Date(labels[labels.length - 10]);
+                }
+                stockChart.options.navigator.slider.maximum = new Date(labels[labels.length - 1]);
+
+                // Update the chart
+                stockChart.render();
+            })
+            .catch(error => console.error('Error fetching data:', error));
+
+        setTimeout(updateChart, 1000); // Update every second
+    }
+
+    updateChart(); // Initial call to update chart
+}
+    </script>
+</head>
+<body>
+    <div id="xChartContainer" style="height: 300px; width: 100%;"></div>
+    <div id="yChartContainer" style="height: 300px; width: 100%;"></div>
+    <div id="zChartContainer" style="height: 300px; width: 100%;"></div>
+    <div id="totalChartContainer" style="height: 300px; width: 100%;"></div>
+    <div id="tempChartContainer" style="height: 300px; width: 100%;"></div>
+</body>
+</html>
